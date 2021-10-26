@@ -117,29 +117,34 @@ export default function (options?: Options): (context: PiniaPluginContext) => vo
         savedState = fetchSavedState()
       }
       if ((options?.filter || filter)(mutation)) {
-        if (isEmptyArray(options?.paths) && options?.paths?.some((_) => _.indexOf(id) !== -1)) {
-          ;(options?.setState || setState)(
-            key,
-            isEmptyArray(options?.paths)
-              ? merge(
-                  savedState,
-                  (options?.reducer || reducer)(
-                    pState,
-                    options?.paths.filter((_) => _.indexOf(id) !== -1)
-                  ),
-                  {
-                    arrayMerge:
-                      options?.arrayMerger ||
-                      function (store, saved) {
-                        return saved
-                      },
-                    clone: false
-                  }
-                )
-              : pState,
-            storage
-          )
-        }
+        ;(options?.setState || setState)(
+          key,
+          isEmptyArray(options?.paths)
+            ? merge(
+                savedState,
+                (options?.reducer || reducer)(
+                  pState,
+                  options?.paths?.filter((_) => _.indexOf(id) !== -1)
+                ),
+                {
+                  arrayMerge:
+                    options?.arrayMerger ||
+                    function (store, saved) {
+                      return saved
+                    },
+                  clone: false
+                }
+              )
+            : merge(savedState, pState, {
+                arrayMerge:
+                  options?.arrayMerger ||
+                  function (store, saved) {
+                    return saved
+                  },
+                clone: false
+              }),
+          storage
+        )
       }
     })
   }
