@@ -21,13 +21,22 @@ You can find the library on `window.createPersistedState`.
 ## Usage
 
 ```js
-import { createPinia } from "pinia";
-import createPersistedState from "pinia-persistedstate";
+import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+import persistedstate from 'pinia-persistedstate'
+import App from './App'
 
-const store = createPinia({
-  // ...
-  plugins: [createPersistedState()],
-});
+const app = createApp(App)
+const store = createPinia()
+
+store.use(
+  persistedstate({
+    key: 'client'
+    // paths: ['dataStore', 'dataStore.count']  // Keep state, use module id, or state
+  })
+)
+
+app.use(store)
 ```
 
 ### Example with pinia modules
@@ -36,67 +45,38 @@ New plugin instances can be created in separate files, but must be imported and 
 
 ```js
 /* module.js */
-export const dataStore = {
-  state: {
-    data: []
-  }
-}
+import { defineStore } from 'pinia'
 
-/* store.js */
+export const dataStore = defineStore({
+  id: 'dataStore',
+  state: () => {
+    return {
+      count: 0
+    }
+  },
+  actions: {
+    increment(data) {
+      this.count = data
+    }
+  }
+})
+
+
+/* demo.tsx */
 import { dataStore } from './module'
 
-const dataState = createPersistedState({
-  paths: ['data']
-})
-
-export new pinia.Store({
-  modules: {
-    dataStore
-  },
-  plugins: [dataState]
-})
-```
-
-#### With local storage (client-side only)
-
-```javascript
-// nuxt.config.js
-
 ...
-/*
- * Naming your plugin 'xxx.client.js' will make it execute only on the client-side.
- * https://nuxtjs.org/guide/plugins/#name-conventional-plugin
- */
-plugins: [{ src: '~/plugins/persistedState.client.js' }]
+  setup: () => {
+    const store = dataStore()
+
+    store.increment()
+
+    return () => {
+      <div>{ store.count }</div>
+    }
+  }
 ...
-```
 
-```javascript
-// ~/plugins/persistedState.client.js
-
-import createPersistedState from 'pinia-persistedstate'
-
-export default ({store}) => {
-  createPersistedState({
-    key: 'yourkey',
-    paths: [...]
-    ...
-  })(store)
-}
-```
-
-#### Using cookies (universal client + server-side)
-
-Add `cookie` and `js-cookie`:
-
-`npm install --save cookie js-cookie`
-or `yarn add cookie js-cookie`
-
-```javascript
-// nuxt.config.js
-...
-plugins: [{ src: '~/plugins/persistedState.js'}]
-...
 ```
 
 ```javascript
@@ -111,7 +91,6 @@ export default ({ store, req }) => {
         paths: [...],
         storage: {
             getItem: (key) => {
-                // See https://nuxtjs.org/guide/plugins/#using-process-flags
                 if (process.server) {
                     const parsedCookies = cookie.parse(req.headers.cookie);
                     return parsedCookies[key];
@@ -119,13 +98,12 @@ export default ({ store, req }) => {
                     return Cookies.get(key);
                 }
             },
-            // Please see https://github.com/js-cookie/js-cookie#json, on how to handle JSON.
             setItem: (key, value) =>
                 Cookies.set(key, value, { expires: 365, secure: false }),
             removeItem: key => Cookies.remove(key)
         }
-    })(store);
-};
+    })(store)
+}
 ```
 
 ## API
@@ -154,31 +132,13 @@ can be provided to configure the plugin for your specific needs:
 
 If it's not ideal to have the state of the pinia store inside localstorage. One can easily implement the functionality to use [cookies](https://github.com/js-cookie/js-cookie) for that (or any other you can think of);
 
-```js
-import { Store } from "pinia";
-import createPersistedState from "pinia-persistedstate";
-import * as Cookies from "js-cookie";
-
-const store = new Store({
-  // ...
-  plugins: [
-    createPersistedState({
-      storage: {
-        getItem: (key) => Cookies.get(key),
-        // Please see https://github.com/js-cookie/js-cookie#json, on how to handle JSON.
-        setItem: (key, value) =>
-          Cookies.set(key, value, { expires: 3, secure: true }),
-        removeItem: (key) => Cookies.remove(key),
-      },
-    }),
-  ],
-});
-```
 
 In fact, any object following the Storage protocol (getItem, setItem, removeItem, etc) could be passed:
 
 ```js
-createPersistedState({ storage: window.sessionStorage });
+createPersistedState({ 
+  storage: window.sessionStorage 
+})
 ```
 
 This is especially useful when you are using this plugin in combination with server-side rendering, where one could pass an instance of [dom-storage](https://www.npmjs.com/package/dom-storage).
@@ -197,16 +157,11 @@ var ls = new SecureLS({ isCompression: false });
 
 // https://github.com/softvar/secure-ls
 
-const store = new Store({
-  // ...
-  plugins: [
-    createPersistedState({
-      storage: {
-        getItem: (key) => ls.get(key),
-        setItem: (key, value) => ls.set(key, value),
-        removeItem: (key) => ls.remove(key),
-      },
-    }),
-  ],
-});
+createPersistedState({
+  storage: {
+    getItem: (key) => ls.get(key),
+    setItem: (key, value) => ls.set(key, value),
+    removeItem: (key) => ls.remove(key)
+  }
+})
 ```
