@@ -2,10 +2,11 @@ import { Store, PiniaPluginContext, MutationType } from 'pinia'
 import merge from 'deepmerge'
 import * as shvl from 'shvl'
 
-// eslint-disable-next-line @typescript-eslint/no-empty-function
-const NOOP = () => {}
+const NOOP = () => {
+  return
+}
 
-const isEmptyArray = (arr) => Array.isArray(arr) && arr.length !== 0
+const isNotEmptyArray = (arr) => Array.isArray(arr) && arr.length > 0
 
 interface Storage {
   getItem: (key: string) => any
@@ -19,8 +20,8 @@ interface Options {
   reducer?: (state: any, paths: string[]) => object
   subscriber?: (store: Store) => (handler: (mutation: any, state: any) => void) => void
   storage?: Storage
-  getState?: (key: string, storage: Storage) => any
-  setState?: (key: string, state: any, storage: Storage) => void
+  getState?: (key: string) => any
+  setState?: (key: string, state: any) => void
   filter?: (mutation: MutationType) => boolean
   arrayMerger?: (state: any[], saved: any[]) => any
   rehydrated?: (store: Store) => void
@@ -29,13 +30,11 @@ interface Options {
   assertStorage?: (storage: Storage) => void | Error
 }
 
-export default function (options?: Options): (context: PiniaPluginContext) => void {
-  options = options || {}
-
+export default function (options: Options = {}): (context: PiniaPluginContext) => void {
   const storage = options.storage || (window && window.localStorage)
   const key = options.key || 'pinia'
 
-  function getState(key, storage) {
+  function getState(key) {
     const value = storage.getItem(key)
 
     try {
@@ -49,16 +48,16 @@ export default function (options?: Options): (context: PiniaPluginContext) => vo
     return undefined
   }
 
+  function setState(key, state) {
+    return storage.setItem(key, JSON.stringify(state))
+  }
+
   function filter() {
     return true
   }
 
-  function setState(key, state, storage) {
-    return storage.setItem(key, JSON.stringify(state))
-  }
-
   function reducer(state, paths) {
-    return Array.isArray(paths)
+    return isNotEmptyArray(paths)
       ? paths.reduce(function (substate, path) {
           return shvl.set(substate, `${path}`, shvl.get(state, path))
         }, {})
@@ -80,7 +79,7 @@ export default function (options?: Options): (context: PiniaPluginContext) => vo
 
   assertStorage(storage)
 
-  const fetchSavedState = () => (options?.getState || getState)(key, storage)
+  const fetchSavedState = () => (options.getState || getState)(key)
 
   let savedState
 
@@ -88,63 +87,53 @@ export default function (options?: Options): (context: PiniaPluginContext) => vo
     savedState = fetchSavedState()
   }
 
-  return function (context: PiniaPluginContext) {
-    if (!options?.fetchBeforeUse) {
+  return function ({ store, pinia }: PiniaPluginContext) {
+    if (!options.fetchBeforeUse) {
       savedState = fetchSavedState()
     }
 
     if (typeof savedState === 'object' && savedState !== null) {
-      const id = context.store.$id
+      const id = store.$id
       if (savedState[id]) {
-        context.store.$state = options?.overwrite
+        store.$state = options.overwrite
           ? savedState
-          : merge(context.store.$state, savedState[id], {
+          : merge(store.$state, savedState[id], {
               arrayMerge:
-                options?.arrayMerger ||
+                options.arrayMerger ||
                 function (store, saved) {
                   return saved
                 },
               clone: false
             })
-        ;(options?.rehydrated || NOOP)(context.store)
+        ;(options.rehydrated || NOOP)(store)
       }
     }
 
-    ;(options?.subscriber || subscriber)(context.store)(function (mutation, state) {
-      const pState = context.pinia.state.value
-      const id = context.store.$id
-      if (!options?.fetchBeforeUse) {
+    ;(options.subscriber || subscriber)(store)(function (mutation, state) {
+      const pState = pinia.state.value
+      const id = store.$id
+      if (!options.fetchBeforeUse) {
         savedState = fetchSavedState()
       }
-      if ((options?.filter || filter)(mutation)) {
-        ;(options?.setState || setState)(
-          key,
-          isEmptyArray(options?.paths)
-            ? merge(
-                savedState,
-                (options?.reducer || reducer)(
-                  pState,
-                  options?.paths?.filter((_) => _.indexOf(id) !== -1)
-                ),
-                {
-                  arrayMerge:
-                    options?.arrayMerger ||
-                    function (store, saved) {
-                      return saved
-                    },
-                  clone: false
-                }
+      if ((options.filter || filter)(mutation)) {
+        const newState = merge(
+          savedState,
+          isNotEmptyArray(options.paths)
+            ? (options.reducer || reducer)(
+                pState,
+                options.paths?.filter((_) => _.indexOf(id) !== -1)
               )
-            : merge(savedState, pState, {
-                arrayMerge:
-                  options?.arrayMerger ||
-                  function (store, saved) {
-                    return saved
-                  },
-                clone: false
-              }),
-          storage
+            : pState,
+          {
+            arrayMerge:
+              options.arrayMerger ||
+              function (store, saved) {
+                return saved
+              },
+            clone: false
+          }
         )
+        ;(options.setState || setState)(key, newState)
       }
     })
   }

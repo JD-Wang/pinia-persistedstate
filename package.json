@@ -1,7 +1,7 @@
 {
   "name": "pinia-persistedstate",
   "description": "For vue3. Persist and rehydrate your Pinia state between page reloads.",
-  "version": "4.1.0",
+  "version": "0.1.0",
   "license": "MIT",
   "author": "jd-wang and tinolee",
   "keywords": [
