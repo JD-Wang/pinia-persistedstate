@@ -56,7 +56,7 @@ export default function (options: Options = {}): (context: PiniaPluginContext) =
     return true
   }
 
-  function reducer(state, paths) {
+  function reducer(state, paths: Array<string>) {
     return isNotEmptyArray(paths)
       ? paths.reduce(function (substate, path) {
           return shvl.set(substate, `${path}`, shvl.get(state, path))
@@ -73,7 +73,7 @@ export default function (options: Options = {}): (context: PiniaPluginContext) =
   const assertStorage =
     options.assertStorage ||
     (() => {
-      storage.setItem('@@', 1)
+      storage.setItem('@@', '1')
       storage.removeItem('@@')
     })
 
@@ -121,7 +121,7 @@ export default function (options: Options = {}): (context: PiniaPluginContext) =
           isNotEmptyArray(options.paths)
             ? (options.reducer || reducer)(
                 pState,
-                options.paths?.filter((_) => _.indexOf(id) !== -1)
+                (options.paths as Array<string>).filter((_) => _.indexOf(id) !== -1)
               )
             : pState,
           {
