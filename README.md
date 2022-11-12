@@ -1,6 +1,6 @@
 # pinia-persistedstate
 
-For vue3. Persist and rehydrate your Pinia state between page reloads. frok from [vuex-persistedstate](https://github.com/robinvdvleuten/vuex-persistedstate)
+For vue3. Persist and rehydrate your Pinia state between page reloads. fork from [vuex-persistedstate](https://github.com/robinvdvleuten/vuex-persistedstate)
 
 <hr />
 
